@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# TaskFlow
 
-## Getting Started
+TaskFlow is a web app for managing projects and tasks in small teams.
+Built with Next.js, React, Tailwind CSS, Firebase Authentication and Cloud Firestore.
 
-First, run the development server:
+- Live demo: [PASTE VERCEL URL]
+- Demo accounts (fictional):
+  - Owner: owner@example.test / 12345678
+  - Member: member@example.test / 12345678
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+
+- Register, log in and log out
+- Create, edit and delete projects (owner only)
+- Add and remove members by email
+- Create, edit and delete tasks with status, priority, due date and assignee
+- Search by title and filter by status, priority, assignee and overdue
+- Dashboard with task counts and overdue tasks
+
+## Setup
+
+1. Run `npm install`
+2. Create a Firebase project. Enable Email/Password sign-in and create a Firestore database.
+3. Copy `.env.example` to `.env.local` and fill in your Firebase values.
+4. Copy the contents of `firestore.rules` into Firestore > Rules and publish.
+5. Run `npm run dev` and open http://localhost:3000
+
+## Environment variables
+
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Firestore structure
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```
+users/{uid}                           displayName, email, createdAt
+projects/{projectId}                  name, description, ownerId, memberIds, createdAt, updatedAt
+projects/{projectId}/tasks/{taskId}   title, description, status, priority, assigneeId,
+                                      dueDate, createdBy, createdAt, updatedAt
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+## Security rules
 
-## Learn More
+Rules are in `firestore.rules`.
 
-To learn more about Next.js, take a look at the following resources:
+- Only project members can read a project and its tasks.
+- Only the owner can edit or delete the project and manage members.
+- Any member can create tasks.
+- A member can edit only tasks they created or are assigned to.
+- Task status can be changed only by the owner or the assignee.
+- Everything else is denied.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Known limitations
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+- Any signed-in user can read user profiles (name and email) so members can be found by email.
+- Deleting a project removes its tasks from the browser, not from a server function.
+- Filtering runs in the browser; there is no pagination or real-time sync.
+- If the network drops, a write may show an error but still be sent after reconnecting.

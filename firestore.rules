@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function projectData(pid) {
+      return get(/databases/$(database)/documents/projects/$(pid)).data;
+    }
+    function isMember(pid) { return signedIn() && uid() in projectData(pid).memberIds; }
+    function isOwner(pid)  { return signedIn() && uid() == projectData(pid).ownerId; }
+
+    function validProject(p) {
+      return p.name is string && p.name.size() >= 3 && p.name.size() <= 80
+        && p.description is string && p.description.size() <= 1000
+        && p.memberIds is list
+        && p.ownerId in p.memberIds;
+    }
+    function validTask(t) {
+      return t.title is string && t.title.size() >= 3 && t.title.size() <= 120
+        && t.description is string && t.description.size() <= 1000
+        && t.status in ['todo', 'in_progress', 'done']
+        && t.priority in ['low', 'medium', 'high']
+        && (t.assigneeId == null || t.assigneeId is string)
+        && (t.dueDate == null || t.dueDate is string);
+    }
+    function assigneeOk(pid, t) {
+      return t.assigneeId == null || t.assigneeId in projectData(pid).memberIds;
+    }
+
+    match /users/{userId} {
+      allow get, list: if signedIn();
+      allow create, update: if signedIn() && uid() == userId
+        && request.resource.data.keys().hasOnly(['displayName', 'email', 'createdAt']);
+      allow delete: if false;
+    }
+
+    match /projects/{projectId} {
+      allow get: if signedIn() && (resource == null || uid() in resource.data.memberIds);
+      allow list: if signedIn() && uid() in resource.data.memberIds;
+
+      allow create: if signedIn()
+        && validProject(request.resource.data)
+        && request.resource.data.ownerId == uid()
+        && request.resource.data.memberIds == [uid()]
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if signedIn() && uid() == resource.data.ownerId
+        && validProject(request.resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if signedIn() && uid() == resource.data.ownerId;
+
+      match /tasks/{taskId} {
+        allow read: if isMember(projectId);
+
+        allow create: if isMember(projectId)
+          && validTask(request.resource.data)
+          && assigneeOk(projectId, request.resource.data)
+          && request.resource.data.createdBy == uid()
+          && request.resource.data.status == 'todo'
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time;
+
+        allow update: if isMember(projectId)
+          && validTask(request.resource.data)
+          && assigneeOk(projectId, request.resource.data)
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (isOwner(projectId)
+              || resource.data.createdBy == uid()
+              || resource.data.assigneeId == uid())
+          && (request.resource.data.status == resource.data.status
+              || isOwner(projectId)
+              || resource.data.assigneeId == uid());
+
+        allow delete: if isMember(projectId)
+          && (isOwner(projectId) || resource.data.createdBy == uid());
+      }
+    }
+  }
+}
