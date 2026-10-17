@@ -8,6 +8,7 @@ import { addMemberByEmail, deleteProject, getProject, removeMember, updateProjec
 import { getProfiles } from '@/services/users';
 import { errorMessage } from '@/lib/constants';
 import { alertCls, btnCls, cardCls, dangerCls, inputCls, labelCls, successCls } from '@/lib/ui';
+import { withTimeout } from '@/lib/async';
 
 function Settings() {
   const { id } = useParams();
@@ -41,7 +42,7 @@ function Settings() {
     setBusy(true);
     setMsg({ type: '', text: '' });
     try {
-      await fn();
+     await withTimeout(fn());
       setMsg({ type: 'ok', text: okText });
       await load();
     } catch (e) {

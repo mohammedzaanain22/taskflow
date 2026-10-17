@@ -1,3 +1,5 @@
+
+
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -14,7 +16,7 @@ import { canChangeStatus, canDeleteTask, canEditTask, isOwner } from '@/lib/perm
 import { isOverdue } from '@/lib/dates';
 import { errorMessage } from '@/lib/constants';
 import { alertCls, btnCls, btn2Cls } from '@/lib/ui';
-
+import { withTimeout } from '@/lib/async';
 function ProjectDetails() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -60,16 +62,16 @@ function ProjectDetails() {
   }), [tasks, filters]);
 
   // ننفذ العملية ثم نعيد التحميل. عند الفشل نعرض الخطأ ونعيد رميه ليبقى الفورم مفتوحاً
-  async function run(fn) {
-    setActionError('');
-    try {
-      await fn();
-      await load();
-    } catch (e) {
-      setActionError(errorMessage(e));
-      throw e;
-    }
+ async function run(fn) {
+  setActionError('');
+  try {
+    await withTimeout(fn());
+    await load();
+  } catch (e) {
+    setActionError(errorMessage(e));
+    throw e;
   }
+}
 
   const handleCreate = async (data) => { await run(() => createTask(id, user.uid, data)); setShowForm(false); };
   const handleUpdate = async (data) => { await run(() => updateTask(id, editing, data)); setEditing(null); };
